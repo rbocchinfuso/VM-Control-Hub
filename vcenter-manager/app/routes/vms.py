@@ -26,20 +26,11 @@ def log_action(user_id, action, vcenter_id=None, vm_moref=None, vm_name=None, re
 @login_required
 def index():
     vcenters = VCenter.query.filter_by(is_active=True).all()
-    all_vms = []
-    errors = []
 
-    def fetch_vms(vc):
-        try:
-            vms = vcenter_client.get_all_vms(vc)
-            for vm in vms:
-                if current_user.can_view_vm(vm['moref'], vc.id):
-                    vm['vcenter_name'] = vc.name
-                    all_vms.append(vm)
-        except Exception as e:
-            errors.append(f"{vc.name}: {str(e)}")
+    # Resolve the real user object from the request-context proxy BEFORE
+    # spawning threads — the proxy becomes None inside worker threads.
+    user = current_user._get_current_object()
 
-    threads = []
     lock = threading.Lock()
     safe_vms = []
     safe_errors = []
@@ -49,7 +40,7 @@ def index():
             vms = vcenter_client.get_all_vms(v)
             filtered = []
             for vm in vms:
-                if current_user.can_view_vm(vm['moref'], v.id):
+                if user.can_view_vm(vm['moref'], v.id):
                     vm['vcenter_name'] = v.name
                     filtered.append(vm)
             with lock:
@@ -58,6 +49,7 @@ def index():
             with lock:
                 safe_errors.append(f"{v.name}: {str(e)}")
 
+    threads = []
     for vc in vcenters:
         t = threading.Thread(target=thread_fetch, args=(vc,))
         threads.append(t)
