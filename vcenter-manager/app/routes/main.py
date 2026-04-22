@@ -7,16 +7,35 @@ import threading
 main_bp = Blueprint('main', __name__)
 
 
+def _allowed_vm_set(user):
+    """Return a frozenset of (vcenter_id, vm_moref) the user may see, or None for admins (allow all).
+
+    Must be called inside a request context (DB queries required).
+    The returned frozenset is safe to pass into threads.
+    """
+    if user.role == 'admin':
+        return None  # None means unrestricted
+    allowed = set()
+    for perm in user.vm_permissions:
+        allowed.add((perm.vcenter_id, perm.vm_moref))
+    for group in user.groups:
+        for gperm in group.vm_permissions:
+            allowed.add((gperm.vcenter_id, gperm.vm_moref))
+    return frozenset(allowed)
+
+
 @main_bp.route('/')
 @login_required
 def dashboard():
-    # Resolve the real user object before spawning threads
     user = current_user._get_current_object()
 
-    # Determine which vCenters this user can see
+    # All DB queries happen here, before threads are spawned
     accessible_ids = user.accessible_vcenter_ids()
     all_active = VCenter.query.filter_by(is_active=True).order_by(VCenter.name).all()
     visible_vcenters = [vc for vc in all_active if vc.id in accessible_ids]
+
+    # Pre-compute allowed VM set — safe to use inside threads (no DB calls)
+    allowed_vms = _allowed_vm_set(user)
 
     lock = threading.Lock()
     results = []
@@ -24,11 +43,11 @@ def dashboard():
     def fetch_stats(vc):
         try:
             all_vms = vcenter_client.get_all_vms(vc)
-            # For non-admins/operators filter to only accessible VMs
-            if user.role in ['admin', 'operator']:
+            if allowed_vms is None:
+                # Admin — sees everything on this vCenter
                 vms = all_vms
             else:
-                vms = [v for v in all_vms if user.can_view_vm(v['moref'], vc.id)]
+                vms = [v for v in all_vms if (vc.id, v['moref']) in allowed_vms]
 
             powered_on = sum(1 for v in vms if v['power_state'] == 'poweredOn')
             stat = {

@@ -125,7 +125,6 @@ class User(UserMixin, db.Model):
         VM permission (granted directly or through a group).
         """
         if self.role == 'admin':
-            from app.models import VCenter
             return {vc.id for vc in VCenter.query.filter_by(is_active=True).all()}
 
         ids = set()

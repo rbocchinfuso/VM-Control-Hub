@@ -22,15 +22,35 @@ def log_action(user_id, action, vcenter_id=None, vm_moref=None, vm_name=None, re
     db.session.commit()
 
 
+def _allowed_vm_set(user):
+    """Return a frozenset of (vcenter_id, vm_moref) the user may see, or None for admins (allow all).
+
+    Must be called inside a request context (DB queries required).
+    The returned frozenset is safe to pass into threads.
+    """
+    if user.role == 'admin':
+        return None  # None means unrestricted
+    allowed = set()
+    for perm in user.vm_permissions:
+        allowed.add((perm.vcenter_id, perm.vm_moref))
+    for group in user.groups:
+        for gperm in group.vm_permissions:
+            allowed.add((gperm.vcenter_id, gperm.vm_moref))
+    return frozenset(allowed)
+
+
 @vms_bp.route('/')
 @login_required
 def index():
-    # Resolve the real user object before spawning threads
     user = current_user._get_current_object()
 
+    # All DB queries happen here, before threads are spawned
     accessible_ids = user.accessible_vcenter_ids()
     all_active = VCenter.query.filter_by(is_active=True).order_by(VCenter.name).all()
     visible_vcenters = [vc for vc in all_active if vc.id in accessible_ids]
+
+    # Pre-compute allowed VM set — safe to use inside threads (no DB calls)
+    allowed_vms = _allowed_vm_set(user)
 
     lock = threading.Lock()
     safe_vms = []
@@ -41,7 +61,7 @@ def index():
             vms = vcenter_client.get_all_vms(v)
             filtered = []
             for vm in vms:
-                if user.can_view_vm(vm['moref'], v.id):
+                if allowed_vms is None or (v.id, vm['moref']) in allowed_vms:
                     vm['vcenter_name'] = v.name
                     filtered.append(vm)
             with lock:
@@ -76,7 +96,7 @@ def index():
     return render_template(
         'vms/index.html',
         vms=filtered_vms,
-        vcenters=visible_vcenters,   # only the ones the user can see
+        vcenters=visible_vcenters,
         errors=safe_errors,
         vcenter_filter=vcenter_filter,
         power_filter=power_filter,
