@@ -39,8 +39,10 @@
                             <option value="{{ role }}" {{ 'selected' if user and user.role == role }}>{{ role.title() }}</option>
                             {% endfor %}
                         </select>
-                        <div class="form-text text-muted">
-                            <strong>Admin:</strong> Full access. <strong>Operator:</strong> Control assigned VMs. <strong>Viewer:</strong> View assigned VMs only.
+                        <div class="form-text text-muted mt-2">
+                            <div><span class="badge bg-danger me-1">Admin</span> Full access to all vCenters, VMs, snapshots, and settings.</div>
+                            <div class="mt-1"><span class="badge bg-warning text-dark me-1">Operator</span> Sees only assigned VMs. Can perform <strong>power operations</strong> (boot, reboot, shutdown, reset). <em>Cannot</em> manage snapshots.</div>
+                            <div class="mt-1"><span class="badge bg-secondary me-1">Viewer</span> Sees only assigned VMs. Read-only — no power or snapshot operations.</div>
                         </div>
                     </div>
                     <div class="mb-3">

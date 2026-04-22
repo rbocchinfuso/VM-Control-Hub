@@ -49,9 +49,10 @@ class User(UserMixin, db.Model):
         return [g.id for g in self.groups]
 
     def can_control_vm(self, vm_moref, vcenter_id):
+        """Power operations: admin always yes; operator/viewer need can_power=True on a permission."""
         if self.role == 'admin':
             return True
-        # Direct per-user permission (operator or viewer with explicit grant)
+        # Direct per-user permission
         perm = VMPermission.query.filter_by(
             user_id=self.id, vm_moref=vm_moref, vcenter_id=vcenter_id
         ).first()
@@ -70,10 +71,35 @@ class User(UserMixin, db.Model):
                 return True
         return False
 
-    def can_view_vm(self, vm_moref, vcenter_id):
-        if self.role in ['admin', 'operator']:
+    def can_snapshot_vm(self, vm_moref, vcenter_id):
+        """Snapshot operations: admin always yes; operators never; viewers need can_snapshot=True."""
+        if self.role == 'admin':
             return True
-        # Direct per-user permission
+        if self.role == 'operator':
+            return False  # Operators are power-only; snapshots are admin privilege
+        # Viewer: need explicit can_snapshot grant
+        perm = VMPermission.query.filter_by(
+            user_id=self.id, vm_moref=vm_moref, vcenter_id=vcenter_id
+        ).first()
+        if perm and perm.can_snapshot:
+            return True
+        gids = self._group_ids()
+        if gids:
+            gperm = GroupVMPermission.query.filter(
+                GroupVMPermission.group_id.in_(gids),
+                GroupVMPermission.vm_moref == vm_moref,
+                GroupVMPermission.vcenter_id == vcenter_id,
+                GroupVMPermission.can_snapshot == True,
+            ).first()
+            if gperm:
+                return True
+        return False
+
+    def can_view_vm(self, vm_moref, vcenter_id):
+        """Visibility: admin always yes; operator and viewer need an explicit permission."""
+        if self.role == 'admin':
+            return True
+        # Direct per-user permission (operator or viewer)
         perm = VMPermission.query.filter_by(
             user_id=self.id, vm_moref=vm_moref, vcenter_id=vcenter_id
         ).first()
@@ -94,19 +120,17 @@ class User(UserMixin, db.Model):
     def accessible_vcenter_ids(self):
         """Return a set of vcenter IDs this user is allowed to see.
 
-        Admins and operators see every active vCenter.
-        Viewers only see vCenters where they have at least one VM permission
-        (granted directly or through a group).
+        Admins see every active vCenter.
+        Operators and viewers only see vCenters where they have at least one
+        VM permission (granted directly or through a group).
         """
-        if self.role in ['admin', 'operator']:
+        if self.role == 'admin':
             from app.models import VCenter
             return {vc.id for vc in VCenter.query.filter_by(is_active=True).all()}
 
         ids = set()
-        # Direct per-user grants
         for perm in self.vm_permissions:
             ids.add(perm.vcenter_id)
-        # Group-inherited grants
         for group in self.groups:
             for gperm in group.vm_permissions:
                 ids.add(gperm.vcenter_id)

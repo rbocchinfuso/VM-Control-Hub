@@ -114,6 +114,7 @@ def detail(vc_id, moref):
 
     vm['vcenter_name'] = vc.name
     can_control = current_user.can_control_vm(moref, vc_id)
+    can_snapshot = current_user.can_snapshot_vm(moref, vc_id)
 
     return render_template(
         'vms/detail.html',
@@ -121,6 +122,7 @@ def detail(vc_id, moref):
         vcenter=vc,
         snapshots=snapshots,
         can_control=can_control,
+        can_snapshot=can_snapshot,
     )
 
 

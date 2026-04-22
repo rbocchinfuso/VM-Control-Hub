@@ -21,21 +21,21 @@ def log_action(user_id, action, vcenter_id=None, vm_moref=None, vm_name=None, re
     db.session.commit()
 
 
+def _deny(is_json, vc_id, moref):
+    if is_json:
+        return jsonify({'error': 'Permission denied — snapshot operations require Admin access.'}), 403
+    flash('Permission denied — snapshot operations require Admin access.', 'danger')
+    return redirect(url_for('vms.detail', vc_id=vc_id, moref=moref))
+
+
 @snapshots_bp.route('/<int:vc_id>/<moref>/snapshots/create', methods=['POST'])
 @login_required
 def create_snapshot(vc_id, moref):
-    if not current_user.can_control_vm(moref, vc_id):
-        if request.is_json:
-            return jsonify({'error': 'Permission denied'}), 403
-        flash('Permission denied.', 'danger')
-        return redirect(url_for('vms.detail', vc_id=vc_id, moref=moref))
+    if not current_user.can_snapshot_vm(moref, vc_id):
+        return _deny(request.is_json, vc_id, moref)
 
     vc = VCenter.query.get_or_404(vc_id)
-
-    if request.is_json:
-        data = request.json
-    else:
-        data = request.form
+    data = request.json if request.is_json else request.form
 
     name = (data.get('name') or '').strip()
     description = (data.get('description') or '').strip()
@@ -67,11 +67,8 @@ def create_snapshot(vc_id, moref):
 @snapshots_bp.route('/<int:vc_id>/<moref>/snapshots/<snap_moref>/revert', methods=['POST'])
 @login_required
 def revert_snapshot(vc_id, moref, snap_moref):
-    if not current_user.can_control_vm(moref, vc_id):
-        if request.is_json:
-            return jsonify({'error': 'Permission denied'}), 403
-        flash('Permission denied.', 'danger')
-        return redirect(url_for('vms.detail', vc_id=vc_id, moref=moref))
+    if not current_user.can_snapshot_vm(moref, vc_id):
+        return _deny(request.is_json, vc_id, moref)
 
     vc = VCenter.query.get_or_404(vc_id)
     vm_name = request.json.get('vm_name', moref) if request.is_json else request.form.get('vm_name', moref)
@@ -94,11 +91,8 @@ def revert_snapshot(vc_id, moref, snap_moref):
 @snapshots_bp.route('/<int:vc_id>/<moref>/snapshots/<snap_moref>/delete', methods=['POST'])
 @login_required
 def delete_snapshot(vc_id, moref, snap_moref):
-    if not current_user.can_control_vm(moref, vc_id):
-        if request.is_json:
-            return jsonify({'error': 'Permission denied'}), 403
-        flash('Permission denied.', 'danger')
-        return redirect(url_for('vms.detail', vc_id=vc_id, moref=moref))
+    if not current_user.can_snapshot_vm(moref, vc_id):
+        return _deny(request.is_json, vc_id, moref)
 
     vc = VCenter.query.get_or_404(vc_id)
     vm_name = request.json.get('vm_name', moref) if request.is_json else request.form.get('vm_name', moref)
