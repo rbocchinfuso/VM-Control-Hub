@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% block title %}Virtual Machines — vCenter Manager{% endblock %}
+{% block content %}
+<div class="px-2">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold mb-0"><i class="bi bi-display me-2 text-primary"></i>Virtual Machines</h4>
+        <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+        </button>
+    </div>
+
+    {% if errors %}
+    <div class="alert alert-warning border-warning">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        <strong>Connection errors:</strong>
+        {% for error in errors %}<br><small>{{ error }}</small>{% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card border-secondary mb-3">
+        <div class="card-body py-2">
+            <form method="GET" class="row g-2 align-items-center">
+                <div class="col-auto">
+                    <input type="text" name="search" class="form-control form-control-sm bg-dark border-secondary text-white"
+                           placeholder="Search VMs..." value="{{ search }}">
+                </div>
+                <div class="col-auto">
+                    <select name="vcenter" class="form-select form-select-sm bg-dark border-secondary text-white">
+                        <option value="">All vCenters</option>
+                        {% for vc in vcenters %}
+                        <option value="{{ vc.id }}" {{ 'selected' if vcenter_filter == vc.id|string }}>{{ vc.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <select name="power" class="form-select form-select-sm bg-dark border-secondary text-white">
+                        <option value="">All States</option>
+                        <option value="poweredOn" {{ 'selected' if power_filter == 'poweredOn' }}>Powered On</option>
+                        <option value="poweredOff" {{ 'selected' if power_filter == 'poweredOff' }}>Powered Off</option>
+                        <option value="suspended" {{ 'selected' if power_filter == 'suspended' }}>Suspended</option>
+                    </select>
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-funnel me-1"></i>Filter
+                    </button>
+                    <a href="{{ url_for('vms.index') }}" class="btn btn-sm btn-outline-secondary ms-1">Clear</a>
+                </div>
+                <div class="col-auto ms-auto text-muted small">
+                    {{ vms|length }} VM{{ 's' if vms|length != 1 }}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card border-secondary">
+        <div class="card-body p-0">
+            {% if vms %}
+            <div class="table-responsive">
+                <table class="table table-dark table-hover mb-0" id="vmTable">
+                    <thead class="text-muted small">
+                        <tr>
+                            <th class="border-secondary ps-4">Name</th>
+                            <th class="border-secondary">vCenter</th>
+                            <th class="border-secondary text-center">Status</th>
+                            <th class="border-secondary">Guest OS</th>
+                            <th class="border-secondary text-center">CPU</th>
+                            <th class="border-secondary text-center">RAM (GB)</th>
+                            <th class="border-secondary">IP Address</th>
+                            <th class="border-secondary text-center">Snapshots</th>
+                            <th class="border-secondary text-end pe-4">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for vm in vms %}
+                        <tr class="vm-row" data-href="{{ url_for('vms.detail', vc_id=vm.vcenter_id, moref=vm.moref) }}" style="cursor:pointer">
+                            <td class="border-secondary ps-4 fw-semibold">
+                                <i class="bi bi-display me-2 {{ 'text-success' if vm.power_state == 'poweredOn' else 'text-muted' }}"></i>
+                                {{ vm.name }}
+                            </td>
+                            <td class="border-secondary text-muted small">{{ vm.vcenter_name }}</td>
+                            <td class="border-secondary text-center">
+                                {% if vm.power_state == 'poweredOn' %}
+                                <span class="badge bg-success">On</span>
+                                {% elif vm.power_state == 'suspended' %}
+                                <span class="badge bg-warning text-dark">Suspended</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Off</span>
+                                {% endif %}
+                            </td>
+                            <td class="border-secondary text-muted small" style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap" title="{{ vm.guest_os }}">{{ vm.guest_os }}</td>
+                            <td class="border-secondary text-center">{{ vm.num_cpu }}</td>
+                            <td class="border-secondary text-center">{{ '%.1f'|format(vm.memory_mb / 1024) }}</td>
+                            <td class="border-secondary text-muted small">{{ vm.ip_address or '—' }}</td>
+                            <td class="border-secondary text-center">
+                                {% if vm.num_snapshots > 0 %}
+                                <span class="badge bg-info text-dark">{{ vm.num_snapshots }}</span>
+                                {% else %}
+                                <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="border-secondary text-end pe-4" onclick="event.stopPropagation()">
+                                <a href="{{ url_for('vms.detail', vc_id=vm.vcenter_id, moref=vm.moref) }}"
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye me-1"></i>View
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-display d-block mb-3" style="font-size:3rem; opacity:.3"></i>
+                <p>No virtual machines found.</p>
+                {% if search or vcenter_filter or power_filter %}
+                <a href="{{ url_for('vms.index') }}" class="btn btn-outline-secondary btn-sm">Clear filters</a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+document.querySelectorAll('.vm-row').forEach(row => {
+    row.addEventListener('click', () => location.href = row.dataset.href);
+});
+</script>
+{% endblock %}

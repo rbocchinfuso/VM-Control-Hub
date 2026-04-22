@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # ── vCenter Manager Web App ────────────────────────────────────────────────
+  app:
+    build: .
+    container_name: vcenter-manager
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      # Change SECRET_KEY to a long random string before deploying!
+      SECRET_KEY: ${SECRET_KEY:-change-me-to-a-long-random-secret}
+      # Use SQLite (default) or PostgreSQL (see db service below)
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/instance/vcenter_manager.db}
+      # Initial admin account (created on first boot)
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme123}
+      # Gunicorn worker count
+      WORKERS: ${WORKERS:-4}
+    volumes:
+      # Persist SQLite database
+      - vcenter_data:/app/instance
+    networks:
+      - vcenter-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/login')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ── Optional: PostgreSQL Database ─────────────────────────────────────────
+  # Uncomment this service and update DATABASE_URL above to use PostgreSQL
+  # instead of SQLite for production deployments.
+  #
+  # db:
+  #   image: postgres:16-alpine
+  #   container_name: vcenter-manager-db
+  #   restart: unless-stopped
+  #   environment:
+  #     POSTGRES_DB: vcenter_manager
+  #     POSTGRES_USER: vcenter
+  #     POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   networks:
+  #     - vcenter-net
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U vcenter -d vcenter_manager"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+  # ── Optional: Nginx Reverse Proxy ─────────────────────────────────────────
+  # Uncomment for production deployments with TLS termination.
+  #
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: vcenter-manager-nginx
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./certs:/etc/nginx/certs:ro
+  #   networks:
+  #     - vcenter-net
+  #   depends_on:
+  #     - app
+
+volumes:
+  vcenter_data:
+  # postgres_data:   # Uncomment when using PostgreSQL
+
+networks:
+  vcenter-net:
+    driver: bridge

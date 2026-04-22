@@ -1,0 +1,144 @@
+:root {
+    --bs-body-bg: #0d1117;
+    --bs-dark: #161b22;
+}
+
+body {
+    background-color: #0d1117;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+}
+
+.card {
+    background-color: #161b22;
+    border-radius: 8px;
+}
+
+.navbar {
+    background-color: #161b22 !important;
+    border-bottom: 1px solid #30363d !important;
+}
+
+.table-dark {
+    --bs-table-bg: #161b22;
+    --bs-table-hover-bg: #1c2128;
+    --bs-table-border-color: #30363d;
+}
+
+.table thead th {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+}
+
+.form-control, .form-select, .input-group-text {
+    background-color: #161b22;
+    border-color: #30363d;
+    color: #e6edf3;
+}
+
+.form-control:focus, .form-select:focus {
+    background-color: #1c2128;
+    border-color: #388bfd;
+    color: #e6edf3;
+    box-shadow: 0 0 0 3px rgba(56,139,253,.1);
+}
+
+.form-control::placeholder {
+    color: #484f58;
+}
+
+.badge {
+    font-weight: 500;
+    letter-spacing: 0.02em;
+}
+
+.progress {
+    background-color: #30363d;
+    border-radius: 4px;
+}
+
+.btn-outline-primary {
+    --bs-btn-border-color: #388bfd;
+    --bs-btn-hover-bg: rgba(56,139,253,.1);
+    --bs-btn-hover-border-color: #388bfd;
+    --bs-btn-color: #388bfd;
+}
+
+.nav-link {
+    color: #8b949e;
+    transition: color .15s;
+}
+
+.nav-link:hover, .nav-link.active {
+    color: #e6edf3;
+}
+
+.nav-link.active {
+    font-weight: 600;
+}
+
+.list-group-item {
+    background-color: #161b22;
+    color: #e6edf3;
+}
+
+.list-group-item:hover {
+    background-color: #1c2128 !important;
+}
+
+.dropdown-menu {
+    background-color: #1c2128;
+    border: 1px solid #30363d;
+}
+
+.dropdown-item {
+    color: #c9d1d9;
+}
+
+.dropdown-item:hover {
+    background-color: #30363d;
+    color: #e6edf3;
+}
+
+.dropdown-divider {
+    border-color: #30363d;
+}
+
+.modal-content {
+    background-color: #161b22;
+    border: 1px solid #30363d;
+}
+
+.alert {
+    border-radius: 8px;
+}
+
+.vm-row:hover td {
+    background-color: #1c2128;
+}
+
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: #0d1117;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #30363d;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #484f58;
+}

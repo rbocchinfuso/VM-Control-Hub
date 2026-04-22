@@ -1,0 +1,55 @@
+version: '3.8'
+
+# PostgreSQL variant — use this for production deployments.
+# Run with: docker-compose -f docker-compose.postgres.yml up -d
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: vcenter-manager-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: vcenter_manager
+      POSTGRES_USER: vcenter
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - vcenter-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vcenter -d vcenter_manager"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: vcenter-manager
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-change-me-to-a-long-random-secret}
+      DATABASE_URL: postgresql://vcenter:${DB_PASSWORD:-changeme}@db:5432/vcenter_manager
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-changeme123}
+      WORKERS: ${WORKERS:-4}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - vcenter-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/login')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  postgres_data:
+
+networks:
+  vcenter-net:
+    driver: bridge

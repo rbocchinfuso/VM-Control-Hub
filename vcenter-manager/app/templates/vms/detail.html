@@ -1,0 +1,358 @@
+{% extends 'base.html' %}
+{% block title %}{{ vm.name }} — vCenter Manager{% endblock %}
+{% block content %}
+<div class="px-2">
+    <div class="d-flex align-items-center mb-4">
+        <a href="{{ url_for('vms.index') }}" class="btn btn-sm btn-outline-secondary me-3">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div class="flex-grow-1">
+            <h4 class="fw-bold mb-0">
+                <i class="bi bi-display me-2 {{ 'text-success' if vm.power_state == 'poweredOn' else 'text-muted' }}"></i>
+                {{ vm.name }}
+            </h4>
+            <div class="text-muted small">{{ vcenter.name }} &mdash; {{ vm.moref }}</div>
+        </div>
+        <div class="ms-3">
+            {% if vm.power_state == 'poweredOn' %}
+            <span class="badge bg-success fs-6"><i class="bi bi-circle-fill me-1" style="font-size:.5rem"></i>Powered On</span>
+            {% elif vm.power_state == 'suspended' %}
+            <span class="badge bg-warning text-dark fs-6">Suspended</span>
+            {% else %}
+            <span class="badge bg-secondary fs-6"><i class="bi bi-circle me-1" style="font-size:.5rem"></i>Powered Off</span>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if can_control %}
+    <div class="card border-secondary mb-4">
+        <div class="card-header border-secondary">
+            <h6 class="mb-0 fw-semibold"><i class="bi bi-lightning me-2 text-warning"></i>Power Controls</h6>
+        </div>
+        <div class="card-body">
+            <div class="d-flex flex-wrap gap-2">
+                {% if vm.power_state == 'poweredOff' %}
+                <button class="btn btn-success power-btn" data-action="power_on">
+                    <i class="bi bi-play-fill me-2"></i>Power On
+                </button>
+                {% else %}
+                <button class="btn btn-outline-success power-btn" data-action="reboot_guest"
+                        {{ 'disabled' if vm.power_state != 'poweredOn' }}>
+                    <i class="bi bi-arrow-counterclockwise me-2"></i>Graceful Reboot
+                </button>
+                <button class="btn btn-outline-warning power-btn" data-action="shutdown"
+                        {{ 'disabled' if vm.power_state != 'poweredOn' }}>
+                    <i class="bi bi-power me-2"></i>Graceful Shutdown
+                </button>
+                <button class="btn btn-outline-danger power-btn" data-action="reset"
+                        data-confirm="Hard reset {{ vm.name }}? This is equivalent to pressing the reset button.">
+                    <i class="bi bi-bootstrap-reboot me-2"></i>Hard Reset
+                </button>
+                <button class="btn btn-danger power-btn" data-action="power_cycle"
+                        data-confirm="Power cycle {{ vm.name }}? This will power off then power on the VM.">
+                    <i class="bi bi-arrow-repeat me-2"></i>Power Cycle
+                </button>
+                <button class="btn btn-outline-secondary power-btn" data-action="power_off"
+                        data-confirm="Hard power off {{ vm.name }}?">
+                    <i class="bi bi-stop-fill me-2"></i>Power Off (Hard)
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-6">
+            <div class="card border-secondary h-100">
+                <div class="card-header border-secondary">
+                    <h6 class="mb-0 fw-semibold"><i class="bi bi-info-circle me-2 text-info"></i>VM Details</h6>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0 small">
+                        <dt class="col-sm-5 text-muted">Guest OS</dt>
+                        <dd class="col-sm-7">{{ vm.guest_os or 'Unknown' }}</dd>
+                        <dt class="col-sm-5 text-muted">VM Version</dt>
+                        <dd class="col-sm-7">{{ vm.vm_version or 'N/A' }}</dd>
+                        <dt class="col-sm-5 text-muted">Guest State</dt>
+                        <dd class="col-sm-7">{{ vm.guest_state }}</dd>
+                        <dt class="col-sm-5 text-muted">IP Address</dt>
+                        <dd class="col-sm-7">{{ vm.ip_address or 'N/A' }}</dd>
+                        <dt class="col-sm-5 text-muted">vCPUs</dt>
+                        <dd class="col-sm-7">{{ vm.num_cpu }}</dd>
+                        <dt class="col-sm-5 text-muted">Memory</dt>
+                        <dd class="col-sm-7">{{ '%.1f'|format(vm.memory_mb / 1024) }} GB</dd>
+                        <dt class="col-sm-5 text-muted">Disk (committed)</dt>
+                        <dd class="col-sm-7">{{ '%.1f'|format(vm.disk_committed_mb / 1024) }} GB</dd>
+                        <dt class="col-sm-5 text-muted">Datastores</dt>
+                        <dd class="col-sm-7">{{ vm.datastores | join(', ') if vm.datastores else 'N/A' }}</dd>
+                        <dt class="col-sm-5 text-muted">Snapshots</dt>
+                        <dd class="col-sm-7">{{ vm.num_snapshots }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card border-secondary h-100">
+                <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-semibold"><i class="bi bi-activity me-2 text-success"></i>Performance</h6>
+                    <button class="btn btn-sm btn-outline-secondary" id="refreshPerfBtn">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                </div>
+                <div class="card-body" id="perfContainer">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span class="text-muted">CPU Usage</span>
+                            <span id="cpuVal" class="fw-semibold">
+                                {% if vm.num_cpu and vm.cpu_usage_mhz %}
+                                {{ '%.0f'|format((vm.cpu_usage_mhz / (vm.num_cpu * 1000)) * 100) }}%
+                                ({{ vm.cpu_usage_mhz }} MHz)
+                                {% else %}N/A{% endif %}
+                            </span>
+                        </div>
+                        <div class="progress" style="height:8px">
+                            {% set cpu_pct = ((vm.cpu_usage_mhz or 0) / (vm.num_cpu * 1000)) * 100 if vm.num_cpu else 0 %}
+                            <div id="cpuBar" class="progress-bar {{ 'bg-danger' if cpu_pct > 85 else 'bg-warning' if cpu_pct > 60 else 'bg-success' }}"
+                                 style="width:{{ cpu_pct }}%"></div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span class="text-muted">Memory Usage</span>
+                            <span id="memVal" class="fw-semibold">
+                                {% if vm.memory_mb %}
+                                {{ '%.0f'|format((vm.memory_usage_mb / vm.memory_mb) * 100) }}%
+                                ({{ '%.1f'|format(vm.memory_usage_mb / 1024) }} / {{ '%.1f'|format(vm.memory_mb / 1024) }} GB)
+                                {% else %}N/A{% endif %}
+                            </span>
+                        </div>
+                        <div class="progress" style="height:8px">
+                            {% set mem_pct = ((vm.memory_usage_mb or 0) / vm.memory_mb) * 100 if vm.memory_mb else 0 %}
+                            <div id="memBar" class="progress-bar {{ 'bg-danger' if mem_pct > 85 else 'bg-warning' if mem_pct > 60 else 'bg-info' }}"
+                                 style="width:{{ mem_pct }}%"></div>
+                        </div>
+                    </div>
+                    <div id="extraMetrics" class="small text-muted"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-secondary">
+        <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+            <h6 class="mb-0 fw-semibold"><i class="bi bi-camera me-2 text-purple" style="color:#a78bfa"></i>Snapshots</h6>
+            {% if can_control %}
+            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#createSnapModal">
+                <i class="bi bi-plus me-1"></i>Create Snapshot
+            </button>
+            {% endif %}
+        </div>
+        <div class="card-body p-0" id="snapshotsContainer">
+            {% if snapshots %}
+            <div class="table-responsive">
+                <table class="table table-dark table-hover mb-0">
+                    <thead class="text-muted small">
+                        <tr>
+                            <th class="border-secondary ps-4">Name</th>
+                            <th class="border-secondary">Description</th>
+                            <th class="border-secondary">Created</th>
+                            <th class="border-secondary text-center">State</th>
+                            <th class="border-secondary text-center">Current</th>
+                            {% if can_control %}
+                            <th class="border-secondary text-end pe-4">Actions</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for snap in snapshots %}
+                        <tr>
+                            <td class="border-secondary ps-4 fw-semibold" style="padding-left:{{ (snap.depth * 20 + 16) }}px !important">
+                                {% for _ in range(snap.depth) %}<span class="text-muted me-1">│</span>{% endfor %}
+                                {% if snap.is_current %}<i class="bi bi-star-fill text-warning me-2"></i>{% endif %}
+                                {{ snap.name }}
+                            </td>
+                            <td class="border-secondary text-muted small">{{ snap.description or '—' }}</td>
+                            <td class="border-secondary text-muted small">{{ snap.create_time[:19].replace('T', ' ') if snap.create_time else '—' }}</td>
+                            <td class="border-secondary text-center">
+                                <span class="badge bg-{{ 'success' if snap.state == 'poweredOn' else 'secondary' }}">{{ snap.state }}</span>
+                            </td>
+                            <td class="border-secondary text-center">
+                                {% if snap.is_current %}<i class="bi bi-check-circle-fill text-warning"></i>{% else %}&mdash;{% endif %}
+                            </td>
+                            {% if can_control %}
+                            <td class="border-secondary text-end pe-4">
+                                <form method="POST" action="{{ url_for('snapshots.revert_snapshot', vc_id=vcenter.id, moref=vm.moref, snap_moref=snap.moref) }}"
+                                      class="d-inline" onsubmit="return confirm('Revert to snapshot {{ snap.name }}? Current VM state will be lost.')">
+                                    <input type="hidden" name="vm_name" value="{{ vm.name }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-warning me-1" title="Revert to this snapshot">
+                                        <i class="bi bi-skip-backward"></i>
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('snapshots.delete_snapshot', vc_id=vcenter.id, moref=vm.moref, snap_moref=snap.moref) }}"
+                                      class="d-inline" onsubmit="return confirm('Delete snapshot {{ snap.name }}?')">
+                                    <input type="hidden" name="vm_name" value="{{ vm.name }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete snapshot">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-camera d-block mb-2" style="font-size:2rem; opacity:.3"></i>
+                No snapshots found
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if can_control %}
+<div class="modal fade" id="createSnapModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content bg-dark border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title fw-semibold">Create Snapshot</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('snapshots.create_snapshot', vc_id=vcenter.id, moref=vm.moref) }}">
+                <input type="hidden" name="vm_name" value="{{ vm.name }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Snapshot Name <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control bg-dark border-secondary text-white" required
+                               placeholder="e.g. Pre-upgrade snapshot">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Description</label>
+                        <textarea name="description" class="form-control bg-dark border-secondary text-white" rows="2"
+                                  placeholder="Optional description"></textarea>
+                    </div>
+                    <div class="mb-2 form-check">
+                        <input type="checkbox" class="form-check-input" id="snapMemory" name="memory">
+                        <label class="form-check-label" for="snapMemory">Include VM memory state</label>
+                        <div class="form-text text-muted">Captures the current memory state (slower, requires VM to be powered on)</div>
+                    </div>
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="snapQuiesce" name="quiesce">
+                        <label class="form-check-label" for="snapQuiesce">Quiesce guest file system</label>
+                        <div class="form-text text-muted">Requires VMware Tools installed in the guest</div>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-camera me-2"></i>Create Snapshot</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="modal fade" id="powerModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content bg-dark border-secondary">
+            <div class="modal-header border-secondary">
+                <h6 class="modal-title fw-semibold">Confirm Action</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="powerModalBody">Are you sure?</div>
+            <div class="modal-footer border-secondary">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmPowerBtn">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const VC_ID = {{ vcenter.id }};
+const MOREF = {{ vm.moref | tojson }};
+const VM_NAME = {{ vm.name | tojson }};
+
+let pendingAction = null;
+
+document.querySelectorAll('.power-btn').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        const action = this.dataset.action;
+        const confirmMsg = this.dataset.confirm;
+
+        if (confirmMsg) {
+            pendingAction = action;
+            document.getElementById('powerModalBody').textContent = confirmMsg;
+            new bootstrap.Modal(document.getElementById('powerModal')).show();
+        } else {
+            await executeAction(action, this);
+        }
+    });
+});
+
+document.getElementById('confirmPowerBtn').addEventListener('click', async function() {
+    bootstrap.Modal.getInstance(document.getElementById('powerModal')).hide();
+    if (pendingAction) {
+        await executeAction(pendingAction, null);
+        pendingAction = null;
+    }
+});
+
+async function executeAction(action, btn) {
+    const allBtns = document.querySelectorAll('.power-btn');
+    allBtns.forEach(b => b.disabled = true);
+
+    try {
+        const resp = await fetch(`/vms/${VC_ID}/${MOREF}/power`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({action, vm_name: VM_NAME})
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            showToast(data.message, 'success');
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            showToast(data.error || 'Action failed', 'danger');
+        }
+    } catch(e) {
+        showToast('Network error', 'danger');
+    } finally {
+        allBtns.forEach(b => b.disabled = false);
+    }
+}
+
+function showToast(msg, type) {
+    const div = document.createElement('div');
+    div.className = `alert alert-${type} position-fixed top-0 end-0 m-3 shadow`;
+    div.style.zIndex = 9999;
+    div.textContent = msg;
+    document.body.appendChild(div);
+    setTimeout(() => div.remove(), 4000);
+}
+
+document.getElementById('refreshPerfBtn').addEventListener('click', async function() {
+    this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    this.disabled = true;
+    try {
+        const resp = await fetch(`/api/vcenters/${VC_ID}/vms/${MOREF}/performance`);
+        const data = await resp.json();
+        if (resp.ok && data.vm) {
+            document.getElementById('cpuVal').textContent = `${data.cpu_percent}% (${data.vm.cpu_usage_mhz} MHz)`;
+            document.getElementById('cpuBar').style.width = data.cpu_percent + '%';
+            document.getElementById('memVal').textContent =
+                `${data.memory_percent}% (${(data.vm.memory_usage_mb/1024).toFixed(1)} / ${(data.vm.memory_mb/1024).toFixed(1)} GB)`;
+            document.getElementById('memBar').style.width = data.memory_percent + '%';
+        }
+    } catch(e) {}
+    this.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
+    this.disabled = false;
+});
+</script>
+{% endblock %}

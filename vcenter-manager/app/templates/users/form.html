@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Edit' if user else 'Add' }} User — vCenter Manager{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="d-flex align-items-center mb-4">
+            <a href="{{ url_for('users.index') }}" class="btn btn-sm btn-outline-secondary me-3">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <h4 class="fw-bold mb-0">
+                <i class="bi bi-person me-2 text-primary"></i>
+                {{ 'Edit' if user else 'Add' }} User
+            </h4>
+        </div>
+        <div class="card border-secondary">
+            <div class="card-body p-4">
+                <form method="POST">
+                    {% if not user %}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Username <span class="text-danger">*</span></label>
+                        <input type="text" name="username" class="form-control bg-dark border-secondary text-white" required
+                               placeholder="username" pattern="[a-zA-Z0-9_.-]+" title="Letters, numbers, underscores, dots, hyphens only">
+                    </div>
+                    {% else %}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-muted">Username</label>
+                        <div class="form-control bg-dark border-secondary text-muted">{{ user.username }}</div>
+                    </div>
+                    {% endif %}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
+                        <input type="email" name="email" class="form-control bg-dark border-secondary text-white"
+                               value="{{ user.email if user else '' }}" required placeholder="user@example.com">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Role <span class="text-danger">*</span></label>
+                        <select name="role" class="form-select bg-dark border-secondary text-white">
+                            {% for role in roles %}
+                            <option value="{{ role }}" {{ 'selected' if user and user.role == role }}>{{ role.title() }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text text-muted">
+                            <strong>Admin:</strong> Full access. <strong>Operator:</strong> Control assigned VMs. <strong>Viewer:</strong> View assigned VMs only.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Password {% if not user %}<span class="text-danger">*</span>{% endif %}</label>
+                        {% if user %}<div class="text-muted small mb-1">Leave blank to keep current password</div>{% endif %}
+                        <input type="password" name="password" class="form-control bg-dark border-secondary text-white"
+                               {{ 'required' if not user else '' }} minlength="8"
+                               placeholder="{{ 'Min 8 characters' if not user else 'Leave blank to keep current' }}">
+                    </div>
+                    {% if user %}
+                    <div class="mb-4 form-check">
+                        <input type="checkbox" class="form-check-input" id="is_active" name="is_active"
+                               {{ 'checked' if user.is_active }}>
+                        <label class="form-check-label" for="is_active">Account active</label>
+                    </div>
+                    {% endif %}
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-2"></i>{{ 'Save Changes' if user else 'Create User' }}
+                        </button>
+                        <a href="{{ url_for('users.index') }}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

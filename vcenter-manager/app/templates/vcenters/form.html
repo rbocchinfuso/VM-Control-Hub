@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Edit' if vcenter else 'Add' }} vCenter — vCenter Manager{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <div class="d-flex align-items-center mb-4">
+            <a href="{{ url_for('vcenters.index') }}" class="btn btn-sm btn-outline-secondary me-3">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <h4 class="fw-bold mb-0">
+                <i class="bi bi-server me-2 text-primary"></i>
+                {{ 'Edit' if vcenter else 'Add' }} vCenter Server
+            </h4>
+        </div>
+        <div class="card border-secondary">
+            <div class="card-body p-4">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Display Name <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control bg-dark border-secondary text-white"
+                               value="{{ vcenter.name if vcenter else '' }}" placeholder="e.g. Production vCenter" required>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Hostname / IP <span class="text-danger">*</span></label>
+                            <input type="text" name="host" class="form-control bg-dark border-secondary text-white"
+                                   value="{{ vcenter.host if vcenter else '' }}" placeholder="vcenter.example.com" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Port</label>
+                            <input type="number" name="port" class="form-control bg-dark border-secondary text-white"
+                                   value="{{ vcenter.port if vcenter else 443 }}" min="1" max="65535">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">vCenter Username <span class="text-danger">*</span></label>
+                        <input type="text" name="username" class="form-control bg-dark border-secondary text-white"
+                               value="{{ vcenter.username if vcenter else '' }}" placeholder="administrator@vsphere.local" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Password <span class="text-danger">*</span></label>
+                        {% if vcenter %}
+                        <div class="text-muted small mb-1">Leave blank to keep current password</div>
+                        {% endif %}
+                        <input type="password" name="password" class="form-control bg-dark border-secondary text-white"
+                               {{ 'required' if not vcenter else '' }} placeholder="{{ 'Enter new password or leave blank' if vcenter else 'vCenter password' }}">
+                    </div>
+                    <div class="mb-4 form-check">
+                        <input type="checkbox" class="form-check-input" id="verify_ssl" name="verify_ssl"
+                               {{ 'checked' if vcenter and vcenter.verify_ssl else '' }}>
+                        <label class="form-check-label" for="verify_ssl">Verify SSL certificate</label>
+                        <div class="form-text text-muted">Disable for self-signed certificates (common in lab environments)</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-2"></i>{{ 'Save Changes' if vcenter else 'Add vCenter' }}
+                        </button>
+                        <a href="{{ url_for('vcenters.index') }}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

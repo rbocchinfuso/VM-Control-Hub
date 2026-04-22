@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — vCenter Manager{% endblock %}
+{% block content %}
+<div class="px-2">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold mb-0"><i class="bi bi-speedometer2 me-2 text-primary"></i>Dashboard</h4>
+        <span class="text-muted small">Auto-refreshes every 30s</span>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-secondary h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="text-muted small fw-semibold">TOTAL VMs</div>
+                            <div class="display-6 fw-bold text-white">{{ total_vms }}</div>
+                        </div>
+                        <i class="bi bi-display text-primary" style="font-size:2.5rem; opacity:.4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-secondary h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="text-muted small fw-semibold">POWERED ON</div>
+                            <div class="display-6 fw-bold text-success">{{ total_powered_on }}</div>
+                        </div>
+                        <i class="bi bi-play-circle text-success" style="font-size:2.5rem; opacity:.4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-secondary h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="text-muted small fw-semibold">POWERED OFF</div>
+                            <div class="display-6 fw-bold text-secondary">{{ total_vms - total_powered_on }}</div>
+                        </div>
+                        <i class="bi bi-stop-circle text-secondary" style="font-size:2.5rem; opacity:.4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+            <div class="card border-secondary h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="text-muted small fw-semibold">VCENTERS</div>
+                            <div class="display-6 fw-bold text-info">{{ vcenter_stats|length }}</div>
+                        </div>
+                        <i class="bi bi-server text-info" style="font-size:2.5rem; opacity:.4"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card border-secondary">
+                <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-semibold"><i class="bi bi-server me-2 text-primary"></i>vCenter Servers</h6>
+                    {% if current_user.is_admin() %}
+                    <a href="{{ url_for('vcenters.add') }}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-plus me-1"></i>Add vCenter
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="card-body p-0">
+                    {% if vcenter_stats %}
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover mb-0">
+                            <thead class="text-muted">
+                                <tr>
+                                    <th class="border-secondary ps-3">vCenter</th>
+                                    <th class="border-secondary text-center">Status</th>
+                                    <th class="border-secondary text-center">Total VMs</th>
+                                    <th class="border-secondary text-center">On</th>
+                                    <th class="border-secondary text-center">Off</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in vcenter_stats %}
+                                <tr>
+                                    <td class="border-secondary ps-3">
+                                        <div class="fw-semibold">{{ stat.vcenter.name }}</div>
+                                        <div class="text-muted small">{{ stat.vcenter.host }}</div>
+                                    </td>
+                                    <td class="border-secondary text-center">
+                                        {% if stat.status == 'connected' %}
+                                        <span class="badge bg-success"><i class="bi bi-circle-fill me-1" style="font-size:.5rem"></i>Connected</span>
+                                        {% else %}
+                                        <span class="badge bg-danger" title="{{ stat.get('error', '') }}"><i class="bi bi-circle-fill me-1" style="font-size:.5rem"></i>Error</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="border-secondary text-center fw-bold">{{ stat.total_vms }}</td>
+                                    <td class="border-secondary text-center text-success fw-bold">{{ stat.powered_on }}</td>
+                                    <td class="border-secondary text-center text-muted fw-bold">{{ stat.powered_off }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-server mb-3 d-block" style="font-size:2.5rem; opacity:.3"></i>
+                        <p>No vCenter servers configured.</p>
+                        {% if current_user.is_admin() %}
+                        <a href="{{ url_for('vcenters.add') }}" class="btn btn-primary btn-sm">Add your first vCenter</a>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card border-secondary">
+                <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-semibold"><i class="bi bi-clock-history me-2 text-warning"></i>Recent Activity</h6>
+                </div>
+                <div class="card-body p-0" style="max-height:400px; overflow-y:auto;">
+                    {% if recent_logs %}
+                    <div class="list-group list-group-flush">
+                        {% for log in recent_logs %}
+                        <div class="list-group-item list-group-item-action bg-transparent border-secondary py-2 px-3">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="small">
+                                    <span class="text-muted">{{ log.user.username }}</span>
+                                    <span class="mx-1 text-muted">›</span>
+                                    <span class="fw-semibold">{{ log.action.replace('_', ' ').title() }}</span>
+                                    {% if log.vm_name %}
+                                    <span class="text-info"> {{ log.vm_name }}</span>
+                                    {% endif %}
+                                </div>
+                                <span class="badge bg-{{ 'success' if log.result == 'success' else 'danger' }} ms-2">{{ log.result }}</span>
+                            </div>
+                            <div class="text-muted" style="font-size:.7rem">{{ log.timestamp.strftime('%Y-%m-%d %H:%M') }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-clock-history d-block mb-2" style="font-size:2rem; opacity:.3"></i>
+                        No activity yet
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+setTimeout(() => location.reload(), 30000);
+</script>
+{% endblock %}

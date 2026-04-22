@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Profile — vCenter Manager{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="d-flex align-items-center mb-4">
+            <h4 class="fw-bold mb-0"><i class="bi bi-person-circle me-2 text-primary"></i>My Profile</h4>
+        </div>
+        <div class="card border-secondary">
+            <div class="card-header border-secondary">
+                <h6 class="mb-0 fw-semibold">Account Information</h6>
+            </div>
+            <div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4 text-muted">Username</dt>
+                    <dd class="col-sm-8">{{ current_user.username }}</dd>
+                    <dt class="col-sm-4 text-muted">Email</dt>
+                    <dd class="col-sm-8">{{ current_user.email }}</dd>
+                    <dt class="col-sm-4 text-muted">Role</dt>
+                    <dd class="col-sm-8"><span class="badge bg-{{ 'danger' if current_user.role == 'admin' else 'warning' if current_user.role == 'operator' else 'secondary' }}">{{ current_user.role }}</span></dd>
+                    <dt class="col-sm-4 text-muted">Last Login</dt>
+                    <dd class="col-sm-8">{{ current_user.last_login.strftime('%Y-%m-%d %H:%M UTC') if current_user.last_login else 'N/A' }}</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="card border-secondary mt-4">
+            <div class="card-header border-secondary">
+                <h6 class="mb-0 fw-semibold"><i class="bi bi-key me-2"></i>Change Password</h6>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">Current Password</label>
+                        <input type="password" name="current_password" class="form-control bg-dark border-secondary text-white" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">New Password</label>
+                        <input type="password" name="new_password" class="form-control bg-dark border-secondary text-white" minlength="8" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small">Confirm New Password</label>
+                        <input type="password" name="confirm_password" class="form-control bg-dark border-secondary text-white" minlength="8" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Update Password</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
