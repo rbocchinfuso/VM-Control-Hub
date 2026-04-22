@@ -26,8 +26,7 @@ services:
     build: .
     container_name: vcenter-manager
     restart: unless-stopped
-    ports:
-      - "5000:5000"
+    # No port binding — Caddy handles ingress via caddy_net
     environment:
       SECRET_KEY: ${SECRET_KEY:-change-me-to-a-long-random-secret}
       DATABASE_URL: postgresql://vcenter:${DB_PASSWORD:-changeme}@db:5432/vcenter_manager
@@ -40,6 +39,11 @@ services:
         condition: service_healthy
     networks:
       - vcenter-net
+      - caddy_net
+    labels:
+      # caddy-docker-proxy — auto-registers with your running Caddy instance
+      caddy: vm-control.pscp-css.support
+      caddy.reverse_proxy: "{{upstreams 5000}}"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/login')"]
       interval: 30s
@@ -51,5 +55,9 @@ volumes:
   postgres_data:
 
 networks:
+  # Internal network for service-to-service communication
   vcenter-net:
     driver: bridge
+  # External Caddy network — must already exist on the host
+  caddy_net:
+    external: true

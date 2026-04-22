@@ -6,8 +6,7 @@ services:
     build: .
     container_name: vcenter-manager
     restart: unless-stopped
-    ports:
-      - "5000:5000"
+    # No port binding — Caddy handles ingress via caddy_net
     environment:
       # Change SECRET_KEY to a long random string before deploying!
       SECRET_KEY: ${SECRET_KEY:-change-me-to-a-long-random-secret}
@@ -24,6 +23,11 @@ services:
       - vcenter_data:/app/instance
     networks:
       - vcenter-net
+      - caddy_net
+    labels:
+      # caddy-docker-proxy — auto-registers with your running Caddy instance
+      caddy: vm-control.pscp-css.support
+      caddy.reverse_proxy: "{{upstreams 5000}}"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/login')"]
       interval: 30s
@@ -53,28 +57,14 @@ services:
   #     timeout: 5s
   #     retries: 5
 
-  # ── Optional: Nginx Reverse Proxy ─────────────────────────────────────────
-  # Uncomment for production deployments with TLS termination.
-  #
-  # nginx:
-  #   image: nginx:alpine
-  #   container_name: vcenter-manager-nginx
-  #   restart: unless-stopped
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   volumes:
-  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
-  #     - ./certs:/etc/nginx/certs:ro
-  #   networks:
-  #     - vcenter-net
-  #   depends_on:
-  #     - app
-
 volumes:
   vcenter_data:
   # postgres_data:   # Uncomment when using PostgreSQL
 
 networks:
+  # Internal network for service-to-service communication
   vcenter-net:
     driver: bridge
+  # External Caddy network — must already exist on the host
+  caddy_net:
+    external: true
