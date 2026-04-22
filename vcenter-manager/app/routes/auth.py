@@ -4,7 +4,6 @@ from app.models import User, db
 from datetime import datetime
 import pyotp
 import qrcode
-import qrcode.image.svg
 import io
 import base64
 

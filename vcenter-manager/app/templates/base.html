@@ -64,9 +64,25 @@
                     <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
                         <i class="bi bi-person-circle me-1"></i>{{ current_user.username }}
                         <span class="badge bg-{{ 'danger' if current_user.role == 'admin' else 'warning' if current_user.role == 'operator' else 'secondary' }} ms-1">{{ current_user.role }}</span>
+                        {% if current_user.mfa_enabled %}
+                        <i class="bi bi-shield-fill-check text-success ms-1" title="2FA enabled"></i>
+                        {% else %}
+                        <i class="bi bi-shield-exclamation text-warning ms-1" title="2FA not enabled"></i>
+                        {% endif %}
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item" href="{{ url_for('auth.profile') }}"><i class="bi bi-key me-2"></i>Change Password</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('auth.profile') }}">
+                            <i class="bi bi-person me-2"></i>Profile &amp; Security
+                        </a></li>
+                        {% if not current_user.mfa_enabled %}
+                        <li><a class="dropdown-item text-warning" href="{{ url_for('auth.mfa_setup') }}">
+                            <i class="bi bi-shield-plus me-2"></i>Enable Two-Factor Auth
+                        </a></li>
+                        {% else %}
+                        <li><a class="dropdown-item text-success" href="{{ url_for('auth.profile') }}">
+                            <i class="bi bi-shield-fill-check me-2"></i>2FA Enabled
+                        </a></li>
+                        {% endif %}
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
                     </ul>
