@@ -23,6 +23,8 @@ class User(UserMixin, db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
+    mfa_secret = db.Column(db.String(64), nullable=True)
+    mfa_enabled = db.Column(db.Boolean, default=False, nullable=False)
 
     vm_permissions = db.relationship('VMPermission', backref='user', lazy='dynamic',
                                      cascade='all, delete-orphan')

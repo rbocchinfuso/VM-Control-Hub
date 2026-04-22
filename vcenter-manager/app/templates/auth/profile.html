@@ -2,10 +2,12 @@
 {% block title %}Profile — vCenter Manager{% endblock %}
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-6">
+    <div class="col-md-7">
         <div class="d-flex align-items-center mb-4">
             <h4 class="fw-bold mb-0"><i class="bi bi-person-circle me-2 text-primary"></i>My Profile</h4>
         </div>
+
+        <!-- Account info -->
         <div class="card border-secondary">
             <div class="card-header border-secondary">
                 <h6 class="mb-0 fw-semibold">Account Information</h6>
@@ -17,13 +19,59 @@
                     <dt class="col-sm-4 text-muted">Email</dt>
                     <dd class="col-sm-8">{{ current_user.email }}</dd>
                     <dt class="col-sm-4 text-muted">Role</dt>
-                    <dd class="col-sm-8"><span class="badge bg-{{ 'danger' if current_user.role == 'admin' else 'warning' if current_user.role == 'operator' else 'secondary' }}">{{ current_user.role }}</span></dd>
+                    <dd class="col-sm-8">
+                        <span class="badge bg-{{ 'danger' if current_user.role == 'admin' else 'warning' if current_user.role == 'operator' else 'secondary' }}">
+                            {{ current_user.role }}
+                        </span>
+                    </dd>
+                    <dt class="col-sm-4 text-muted">Groups</dt>
+                    <dd class="col-sm-8">
+                        {% for group in current_user.groups %}
+                        <span class="badge bg-primary me-1">
+                            <i class="bi bi-people-fill me-1"></i>{{ group.name }}
+                        </span>
+                        {% else %}
+                        <span class="text-muted small">None</span>
+                        {% endfor %}
+                    </dd>
                     <dt class="col-sm-4 text-muted">Last Login</dt>
                     <dd class="col-sm-8">{{ current_user.last_login.strftime('%Y-%m-%d %H:%M UTC') if current_user.last_login else 'N/A' }}</dd>
                 </dl>
             </div>
         </div>
 
+        <!-- Two-factor authentication -->
+        <div class="card border-secondary mt-4">
+            <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-semibold"><i class="bi bi-shield-lock me-2"></i>Two-Factor Authentication</h6>
+                {% if current_user.mfa_enabled %}
+                <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Enabled</span>
+                {% else %}
+                <span class="badge bg-secondary">Disabled</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if current_user.mfa_enabled %}
+                <p class="text-muted small mb-3">
+                    Two-factor authentication is active on your account.
+                    You will be asked for a code from your authenticator app each time you log in.
+                </p>
+                <button class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#disableMfaModal">
+                    <i class="bi bi-shield-x me-2"></i>Disable Two-Factor Authentication
+                </button>
+                {% else %}
+                <p class="text-muted small mb-3">
+                    Two-factor authentication is not enabled. Add an extra layer of security by requiring
+                    a code from your authenticator app at login.
+                </p>
+                <a href="{{ url_for('auth.mfa_setup') }}" class="btn btn-success btn-sm">
+                    <i class="bi bi-shield-plus me-2"></i>Set Up Two-Factor Authentication
+                </a>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Change password -->
         <div class="card border-secondary mt-4">
             <div class="card-header border-secondary">
                 <h6 class="mb-0 fw-semibold"><i class="bi bi-key me-2"></i>Change Password</h6>
@@ -48,4 +96,39 @@
         </div>
     </div>
 </div>
+
+<!-- Disable MFA modal -->
+{% if current_user.mfa_enabled %}
+<div class="modal fade" id="disableMfaModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title">
+                    <i class="bi bi-shield-x me-2 text-danger"></i>Disable Two-Factor Authentication
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('auth.mfa_disable') }}">
+                <div class="modal-body">
+                    <p class="text-muted">
+                        This will remove the extra security from your account.
+                        Confirm by entering your current password.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Current Password</label>
+                        <input type="password" name="password"
+                               class="form-control bg-dark border-secondary text-white" required autofocus>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-shield-x me-2"></i>Disable 2FA
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

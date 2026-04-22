@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}Set Up Two-Factor Auth — vCenter Manager{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7 col-lg-6">
+        <div class="d-flex align-items-center mb-4">
+            <a href="{{ url_for('auth.profile') }}" class="btn btn-sm btn-outline-secondary me-3">
+                <i class="bi bi-arrow-left"></i>
+            </a>
+            <h4 class="fw-bold mb-0">
+                <i class="bi bi-shield-lock-fill me-2 text-primary"></i>Set Up Two-Factor Authentication
+            </h4>
+        </div>
+
+        <div class="card border-secondary mb-3">
+            <div class="card-header border-secondary">
+                <h6 class="mb-0 fw-semibold">Step 1 — Scan the QR code</h6>
+            </div>
+            <div class="card-body text-center">
+                <p class="text-muted small mb-3">
+                    Open your authenticator app (Google Authenticator, Authy, 1Password, etc.)
+                    and scan the QR code below.
+                </p>
+                <div class="d-inline-block p-3 bg-white rounded mb-3">
+                    <img src="{{ qr_data_uri }}" alt="MFA QR Code" style="width:200px; height:200px;">
+                </div>
+                <div>
+                    <p class="text-muted small mb-1">Can't scan? Enter this key manually:</p>
+                    <code class="user-select-all fs-6 text-info">{{ secret | upper | replace('', ' ') | trim }}</code>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-secondary">
+            <div class="card-header border-secondary">
+                <h6 class="mb-0 fw-semibold">Step 2 — Confirm the code</h6>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small mb-3">
+                    Enter the 6-digit code shown in your authenticator app to confirm setup.
+                </p>
+                <form method="POST" autocomplete="off">
+                    <div class="mb-3">
+                        <input type="text" name="code"
+                               class="form-control bg-dark border-secondary text-white text-center fw-bold"
+                               style="font-size:1.8rem; letter-spacing:0.4rem"
+                               placeholder="000000"
+                               maxlength="6"
+                               inputmode="numeric"
+                               pattern="[0-9]{6}"
+                               autocomplete="one-time-code"
+                               autofocus required>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100 fw-semibold">
+                        <i class="bi bi-shield-check me-2"></i>Enable Two-Factor Authentication
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="alert border-secondary mt-3 text-muted small" style="background:#1c2128">
+            <i class="bi bi-exclamation-triangle me-2 text-warning"></i>
+            <strong>Important:</strong> Once enabled, you will need your authenticator app every time you log in.
+            Keep a secure backup of your authenticator or the manual key above in case you lose access to your device.
+        </div>
+    </div>
+</div>
+{% endblock %}
