@@ -21,8 +21,25 @@ def admin_required(f):
 @vcenters_bp.route('/')
 @login_required
 def index():
-    vcenters = VCenter.query.all()
-    return render_template('vcenters/index.html', vcenters=vcenters)
+    if current_user.is_admin():
+        # Admins see every vCenter (active or not) for management
+        vcenters = VCenter.query.order_by(VCenter.name).all()
+    else:
+        # Operators and viewers only see active vCenters they have access to
+        accessible_ids = current_user.accessible_vcenter_ids()
+        if accessible_ids:
+            vcenters = VCenter.query.filter(
+                VCenter.id.in_(accessible_ids),
+                VCenter.is_active == True,
+            ).order_by(VCenter.name).all()
+        else:
+            vcenters = []
+
+    return render_template(
+        'vcenters/index.html',
+        vcenters=vcenters,
+        is_admin=current_user.is_admin(),
+    )
 
 
 @vcenters_bp.route('/add', methods=['GET', 'POST'])

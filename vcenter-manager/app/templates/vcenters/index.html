@@ -3,10 +3,19 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4 px-2">
     <h4 class="fw-bold mb-0"><i class="bi bi-server me-2 text-primary"></i>vCenter Servers</h4>
+    {% if is_admin %}
     <a href="{{ url_for('vcenters.add') }}" class="btn btn-primary">
         <i class="bi bi-plus-lg me-2"></i>Add vCenter
     </a>
+    {% endif %}
 </div>
+
+{% if not is_admin %}
+<div class="alert border-secondary text-muted mb-4" style="background:#1c2128">
+    <i class="bi bi-info-circle me-2"></i>
+    Showing only vCenter servers you have VM access to. Contact an administrator to request access.
+</div>
+{% endif %}
 
 <div class="card border-secondary">
     <div class="card-body p-0">
@@ -21,13 +30,20 @@
                         <th class="border-secondary text-center">SSL</th>
                         <th class="border-secondary text-center">Status</th>
                         <th class="border-secondary">Last Connected</th>
+                        {% if is_admin %}
                         <th class="border-secondary text-end pe-4">Actions</th>
+                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
                     {% for vc in vcenters %}
                     <tr>
-                        <td class="border-secondary ps-4 fw-semibold">{{ vc.name }}</td>
+                        <td class="border-secondary ps-4 fw-semibold">
+                            <i class="bi bi-server me-2 text-muted"></i>{{ vc.name }}
+                            {% if is_admin and not vc.is_active %}
+                            <span class="badge bg-secondary ms-1">Inactive</span>
+                            {% endif %}
+                        </td>
                         <td class="border-secondary text-muted">{{ vc.host }}</td>
                         <td class="border-secondary text-center text-muted">{{ vc.port }}</td>
                         <td class="border-secondary text-center">
@@ -38,27 +54,34 @@
                             {% endif %}
                         </td>
                         <td class="border-secondary text-center">
-                            <span class="badge bg-{{ 'success' if vc.connection_status == 'connected' else 'danger' if vc.connection_status == 'error' else 'secondary' }} status-badge" data-vc-id="{{ vc.id }}">
+                            <span class="badge bg-{{ 'success' if vc.connection_status == 'connected' else 'danger' if vc.connection_status == 'error' else 'secondary' }}
+                                         {% if is_admin %}status-badge{% endif %}"
+                                  {% if is_admin %}data-vc-id="{{ vc.id }}"{% endif %}>
                                 {{ vc.connection_status }}
                             </span>
                         </td>
                         <td class="border-secondary text-muted small">
                             {{ vc.last_connected.strftime('%Y-%m-%d %H:%M') if vc.last_connected else 'Never' }}
                         </td>
+                        {% if is_admin %}
                         <td class="border-secondary text-end pe-4">
-                            <button class="btn btn-sm btn-outline-secondary me-1 test-btn" data-vc-id="{{ vc.id }}" title="Test Connection">
+                            <button class="btn btn-sm btn-outline-secondary me-1 test-btn"
+                                    data-vc-id="{{ vc.id }}" title="Test Connection">
                                 <i class="bi bi-plug"></i>
                             </button>
-                            <a href="{{ url_for('vcenters.edit', vc_id=vc.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
+                            <a href="{{ url_for('vcenters.edit', vc_id=vc.id) }}"
+                               class="btn btn-sm btn-outline-primary me-1" title="Edit">
                                 <i class="bi bi-pencil"></i>
                             </a>
-                            <form method="POST" action="{{ url_for('vcenters.delete', vc_id=vc.id) }}" class="d-inline"
+                            <form method="POST" action="{{ url_for('vcenters.delete', vc_id=vc.id) }}"
+                                  class="d-inline"
                                   onsubmit="return confirm('Delete vCenter {{ vc.name }}? This will remove all associated permissions.')">
                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
                         </td>
+                        {% endif %}
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -67,14 +90,20 @@
         {% else %}
         <div class="text-center py-5 text-muted">
             <i class="bi bi-server d-block mb-3" style="font-size:3rem; opacity:.3"></i>
+            {% if is_admin %}
             <p class="mb-3">No vCenter servers configured yet.</p>
             <a href="{{ url_for('vcenters.add') }}" class="btn btn-primary">Add your first vCenter</a>
+            {% else %}
+            <p class="mb-0">You don't have access to any vCenter servers yet.</p>
+            <p class="small">Ask an administrator to grant you VM permissions.</p>
+            {% endif %}
         </div>
         {% endif %}
     </div>
 </div>
 {% endblock %}
 {% block scripts %}
+{% if is_admin %}
 <script>
 document.querySelectorAll('.test-btn').forEach(btn => {
     btn.addEventListener('click', async function() {
@@ -101,4 +130,5 @@ document.querySelectorAll('.test-btn').forEach(btn => {
     });
 });
 </script>
+{% endif %}
 {% endblock %}

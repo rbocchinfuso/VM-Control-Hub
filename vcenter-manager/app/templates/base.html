@@ -31,12 +31,12 @@
                         <i class="bi bi-display me-1"></i>Virtual Machines
                     </a>
                 </li>
-                {% if current_user.is_admin() %}
                 <li class="nav-item">
                     <a class="nav-link {% if request.blueprint == 'vcenters' %}active{% endif %}" href="{{ url_for('vcenters.index') }}">
                         <i class="bi bi-server me-1"></i>vCenters
                     </a>
                 </li>
+                {% if current_user.is_admin() %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle {% if request.blueprint in ['users', 'groups'] %}active{% endif %}"
                        href="#" data-bs-toggle="dropdown">

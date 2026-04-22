@@ -25,11 +25,12 @@ def log_action(user_id, action, vcenter_id=None, vm_moref=None, vm_name=None, re
 @vms_bp.route('/')
 @login_required
 def index():
-    vcenters = VCenter.query.filter_by(is_active=True).all()
-
-    # Resolve the real user object from the request-context proxy BEFORE
-    # spawning threads — the proxy becomes None inside worker threads.
+    # Resolve the real user object before spawning threads
     user = current_user._get_current_object()
+
+    accessible_ids = user.accessible_vcenter_ids()
+    all_active = VCenter.query.filter_by(is_active=True).order_by(VCenter.name).all()
+    visible_vcenters = [vc for vc in all_active if vc.id in accessible_ids]
 
     lock = threading.Lock()
     safe_vms = []
@@ -50,11 +51,10 @@ def index():
                 safe_errors.append(f"{v.name}: {str(e)}")
 
     threads = []
-    for vc in vcenters:
+    for vc in visible_vcenters:
         t = threading.Thread(target=thread_fetch, args=(vc,))
         threads.append(t)
         t.start()
-
     for t in threads:
         t.join(timeout=15)
 
@@ -76,7 +76,7 @@ def index():
     return render_template(
         'vms/index.html',
         vms=filtered_vms,
-        vcenters=vcenters,
+        vcenters=visible_vcenters,   # only the ones the user can see
         errors=safe_errors,
         vcenter_filter=vcenter_filter,
         power_filter=power_filter,
@@ -87,10 +87,16 @@ def index():
 @vms_bp.route('/<int:vc_id>/<moref>')
 @login_required
 def detail(vc_id, moref):
-    vc = VCenter.query.get_or_404(vc_id)
+    # Gate access: user must be able to see this vCenter AND this VM
+    if vc_id not in current_user.accessible_vcenter_ids():
+        flash('You do not have permission to access this vCenter.', 'danger')
+        return redirect(url_for('vms.index'))
+
     if not current_user.can_view_vm(moref, vc_id):
         flash('You do not have permission to view this VM.', 'danger')
         return redirect(url_for('vms.index'))
+
+    vc = VCenter.query.get_or_404(vc_id)
 
     try:
         vm = vcenter_client.get_vm_by_moref(vc, moref)

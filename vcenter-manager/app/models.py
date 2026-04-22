@@ -91,6 +91,27 @@ class User(UserMixin, db.Model):
                 return True
         return False
 
+    def accessible_vcenter_ids(self):
+        """Return a set of vcenter IDs this user is allowed to see.
+
+        Admins and operators see every active vCenter.
+        Viewers only see vCenters where they have at least one VM permission
+        (granted directly or through a group).
+        """
+        if self.role in ['admin', 'operator']:
+            from app.models import VCenter
+            return {vc.id for vc in VCenter.query.filter_by(is_active=True).all()}
+
+        ids = set()
+        # Direct per-user grants
+        for perm in self.vm_permissions:
+            ids.add(perm.vcenter_id)
+        # Group-inherited grants
+        for group in self.groups:
+            for gperm in group.vm_permissions:
+                ids.add(gperm.vcenter_id)
+        return ids
+
     def __repr__(self):
         return f'<User {self.username}>'
 
