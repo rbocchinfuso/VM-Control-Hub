@@ -4,6 +4,14 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 
 
+# Association table — users <-> groups (many-to-many)
+user_groups = db.Table(
+    'user_groups',
+    db.Column('user_id', db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), primary_key=True),
+    db.Column('group_id', db.Integer, db.ForeignKey('groups.id', ondelete='CASCADE'), primary_key=True),
+)
+
+
 class User(UserMixin, db.Model):
     __tablename__ = 'users'
 
@@ -16,7 +24,10 @@ class User(UserMixin, db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
 
-    vm_permissions = db.relationship('VMPermission', backref='user', lazy='dynamic')
+    vm_permissions = db.relationship('VMPermission', backref='user', lazy='dynamic',
+                                     cascade='all, delete-orphan')
+    groups = db.relationship('Group', secondary=user_groups, back_populates='members',
+                             lazy='select')
 
     ROLES = ['admin', 'operator', 'viewer']
 
@@ -32,26 +43,88 @@ class User(UserMixin, db.Model):
     def is_operator(self):
         return self.role in ['admin', 'operator']
 
+    def _group_ids(self):
+        return [g.id for g in self.groups]
+
     def can_control_vm(self, vm_moref, vcenter_id):
         if self.role == 'admin':
             return True
-        if self.role == 'operator':
-            perm = VMPermission.query.filter_by(
-                user_id=self.id, vm_moref=vm_moref, vcenter_id=vcenter_id
+        # Direct per-user permission (operator or viewer with explicit grant)
+        perm = VMPermission.query.filter_by(
+            user_id=self.id, vm_moref=vm_moref, vcenter_id=vcenter_id
+        ).first()
+        if perm and perm.can_power:
+            return True
+        # Group-inherited permission
+        gids = self._group_ids()
+        if gids:
+            gperm = GroupVMPermission.query.filter(
+                GroupVMPermission.group_id.in_(gids),
+                GroupVMPermission.vm_moref == vm_moref,
+                GroupVMPermission.vcenter_id == vcenter_id,
+                GroupVMPermission.can_power == True,
             ).first()
-            return perm is not None
+            if gperm:
+                return True
         return False
 
     def can_view_vm(self, vm_moref, vcenter_id):
         if self.role in ['admin', 'operator']:
             return True
+        # Direct per-user permission
         perm = VMPermission.query.filter_by(
             user_id=self.id, vm_moref=vm_moref, vcenter_id=vcenter_id
         ).first()
-        return perm is not None
+        if perm:
+            return True
+        # Group-inherited permission
+        gids = self._group_ids()
+        if gids:
+            gperm = GroupVMPermission.query.filter(
+                GroupVMPermission.group_id.in_(gids),
+                GroupVMPermission.vm_moref == vm_moref,
+                GroupVMPermission.vcenter_id == vcenter_id,
+            ).first()
+            if gperm:
+                return True
+        return False
 
     def __repr__(self):
         return f'<User {self.username}>'
+
+
+class Group(db.Model):
+    __tablename__ = 'groups'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    description = db.Column(db.String(500))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    members = db.relationship('User', secondary=user_groups, back_populates='groups',
+                              lazy='select')
+    vm_permissions = db.relationship('GroupVMPermission', backref='group',
+                                     lazy='dynamic', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f'<Group {self.name}>'
+
+
+class GroupVMPermission(db.Model):
+    __tablename__ = 'group_vm_permissions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('groups.id', ondelete='CASCADE'), nullable=False)
+    vcenter_id = db.Column(db.Integer, db.ForeignKey('vcenters.id', ondelete='CASCADE'), nullable=False)
+    vm_moref = db.Column(db.String(50), nullable=False)
+    vm_name = db.Column(db.String(255))
+    can_power = db.Column(db.Boolean, default=True)
+    can_snapshot = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('group_id', 'vcenter_id', 'vm_moref', name='unique_group_vm_permission'),
+    )
 
 
 class VCenter(db.Model):
@@ -79,8 +152,8 @@ class VMPermission(db.Model):
     __tablename__ = 'vm_permissions'
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    vcenter_id = db.Column(db.Integer, db.ForeignKey('vcenters.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    vcenter_id = db.Column(db.Integer, db.ForeignKey('vcenters.id', ondelete='CASCADE'), nullable=False)
     vm_moref = db.Column(db.String(50), nullable=False)
     vm_name = db.Column(db.String(255))
     can_power = db.Column(db.Boolean, default=True)

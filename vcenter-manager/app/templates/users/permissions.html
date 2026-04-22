@@ -13,6 +13,12 @@
             <div class="text-muted small">
                 User: <strong>{{ user.username }}</strong>
                 <span class="badge bg-{{ 'danger' if user.role == 'admin' else 'warning text-dark' if user.role == 'operator' else 'secondary' }} ms-2">{{ user.role }}</span>
+                {% for group in user.groups %}
+                <a href="{{ url_for('groups.members', group_id=group.id) }}"
+                   class="badge bg-primary text-decoration-none ms-1">
+                    <i class="bi bi-people-fill me-1"></i>{{ group.name }}
+                </a>
+                {% endfor %}
             </div>
         </div>
     </div>
@@ -28,13 +34,14 @@
         <div class="col-lg-5">
             <div class="card border-secondary">
                 <div class="card-header border-secondary">
-                    <h6 class="mb-0 fw-semibold"><i class="bi bi-plus-circle me-2 text-success"></i>Add VM Permission</h6>
+                    <h6 class="mb-0 fw-semibold"><i class="bi bi-plus-circle me-2 text-success"></i>Add Direct Permission</h6>
                 </div>
                 <div class="card-body">
                     <form method="POST">
                         <div class="mb-3">
                             <label class="form-label fw-semibold">vCenter</label>
-                            <select name="vcenter_id" id="vcenterSelect" class="form-select bg-dark border-secondary text-white" required>
+                            <select name="vcenter_id" id="vcenterSelect"
+                                    class="form-select bg-dark border-secondary text-white" required>
                                 <option value="">Select vCenter...</option>
                                 {% for vc in vcenters %}
                                 <option value="{{ vc.id }}">{{ vc.name }}</option>
@@ -43,7 +50,8 @@
                         </div>
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Virtual Machine</label>
-                            <select name="vm_moref" id="vmSelect" class="form-select bg-dark border-secondary text-white" required disabled>
+                            <select name="vm_moref" id="vmSelect"
+                                    class="form-select bg-dark border-secondary text-white" required disabled>
                                 <option value="">Select a vCenter first...</option>
                             </select>
                             <input type="hidden" name="vm_name" id="vmNameInput">
@@ -67,9 +75,13 @@
         </div>
 
         <div class="col-lg-7">
-            <div class="card border-secondary">
-                <div class="card-header border-secondary">
-                    <h6 class="mb-0 fw-semibold"><i class="bi bi-list-check me-2"></i>Current Permissions</h6>
+            <!-- Direct permissions -->
+            <div class="card border-secondary mb-4">
+                <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-semibold">
+                        <i class="bi bi-person-check me-2"></i>Direct Permissions
+                        <span class="badge bg-secondary ms-1">{{ current_perms | length }}</span>
+                    </h6>
                 </div>
                 <div class="card-body p-0">
                     {% if current_perms %}
@@ -79,8 +91,8 @@
                                 <tr>
                                     <th class="border-secondary ps-3">VM Name</th>
                                     <th class="border-secondary">vCenter</th>
-                                    <th class="border-secondary text-center">Power</th>
-                                    <th class="border-secondary text-center">Snaps</th>
+                                    <th class="border-secondary text-center"><i class="bi bi-power" title="Power"></i></th>
+                                    <th class="border-secondary text-center"><i class="bi bi-camera" title="Snapshots"></i></th>
                                     <th class="border-secondary text-end pe-3">Remove</th>
                                 </tr>
                             </thead>
@@ -92,13 +104,14 @@
                                         {% for vc in vcenters %}{% if vc.id == perm.vcenter_id %}{{ vc.name }}{% endif %}{% endfor %}
                                     </td>
                                     <td class="border-secondary text-center">
-                                        {% if perm.can_power %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}
+                                        {% if perm.can_power %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}
                                     </td>
                                     <td class="border-secondary text-center">
-                                        {% if perm.can_snapshot %}<i class="bi bi-check-circle text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}
+                                        {% if perm.can_snapshot %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}
                                     </td>
                                     <td class="border-secondary text-end pe-3">
-                                        <form method="POST" action="{{ url_for('users.delete_permission', user_id=user.id, perm_id=perm.id) }}"
+                                        <form method="POST"
+                                              action="{{ url_for('users.delete_permission', user_id=user.id, perm_id=perm.id) }}"
                                               onsubmit="return confirm('Remove this permission?')">
                                             <button type="submit" class="btn btn-sm btn-outline-danger">
                                                 <i class="bi bi-trash"></i>
@@ -111,13 +124,74 @@
                         </table>
                     </div>
                     {% else %}
-                    <div class="text-center py-4 text-muted">
-                        <i class="bi bi-shield-x d-block mb-2" style="font-size:2rem; opacity:.3"></i>
-                        No VM permissions assigned
+                    <div class="text-center py-3 text-muted small">No direct permissions assigned.</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Group-inherited permissions -->
+            {% if user.groups %}
+            <div class="card border-secondary">
+                <div class="card-header border-secondary">
+                    <h6 class="mb-0 fw-semibold text-muted">
+                        <i class="bi bi-people-fill me-2"></i>Group-Inherited Permissions
+                        <span class="text-muted small fw-normal ms-2">(read-only — manage via Groups)</span>
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    {% set has_group_perms = namespace(found=false) %}
+                    {% for group in user.groups %}
+                        {% for perm in group.vm_permissions %}
+                            {% set has_group_perms.found = true %}
+                        {% endfor %}
+                    {% endfor %}
+
+                    {% if has_group_perms.found %}
+                    <div class="table-responsive">
+                        <table class="table table-dark mb-0">
+                            <thead class="text-muted small">
+                                <tr>
+                                    <th class="border-secondary ps-3">VM Name</th>
+                                    <th class="border-secondary">vCenter</th>
+                                    <th class="border-secondary text-center"><i class="bi bi-power"></i></th>
+                                    <th class="border-secondary text-center"><i class="bi bi-camera"></i></th>
+                                    <th class="border-secondary">Via Group</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for group in user.groups %}
+                                    {% for perm in group.vm_permissions %}
+                                    <tr>
+                                        <td class="border-secondary ps-3 text-muted">{{ perm.vm_name or perm.vm_moref }}</td>
+                                        <td class="border-secondary text-muted small">
+                                            {% for vc in vcenters %}{% if vc.id == perm.vcenter_id %}{{ vc.name }}{% endif %}{% endfor %}
+                                        </td>
+                                        <td class="border-secondary text-center">
+                                            {% if perm.can_power %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}
+                                        </td>
+                                        <td class="border-secondary text-center">
+                                            {% if perm.can_snapshot %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle text-muted"></i>{% endif %}
+                                        </td>
+                                        <td class="border-secondary">
+                                            <a href="{{ url_for('groups.permissions', group_id=group.id) }}"
+                                               class="badge bg-primary text-decoration-none">
+                                                <i class="bi bi-people-fill me-1"></i>{{ group.name }}
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3 text-muted small">
+                        User is in {{ user.groups | length }} group{{ 's' if user.groups | length != 1 }} but none have VM permissions yet.
                     </div>
                     {% endif %}
                 </div>
             </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -126,12 +200,13 @@
 const vmsByVcenter = {{ all_vms | tojson }};
 
 document.getElementById('vcenterSelect').addEventListener('change', function() {
-    const vcId = this.value;
+    const vcId = parseInt(this.value);
     const vmSelect = document.getElementById('vmSelect');
     vmSelect.innerHTML = '<option value="">Select VM...</option>';
 
-    if (vcId && vmsByVcenter[vcId]) {
-        vmsByVcenter[vcId].forEach(vm => {
+    const vms = vmsByVcenter[vcId];
+    if (vcId && vms && vms.length) {
+        vms.forEach(vm => {
             const opt = document.createElement('option');
             opt.value = vm.moref;
             opt.textContent = `${vm.name} (${vm.power_state})`;
@@ -145,8 +220,8 @@ document.getElementById('vcenterSelect').addEventListener('change', function() {
 });
 
 document.getElementById('vmSelect').addEventListener('change', function() {
-    const selected = this.options[this.selectedIndex];
-    document.getElementById('vmNameInput').value = selected.dataset.name || '';
+    const sel = this.options[this.selectedIndex];
+    document.getElementById('vmNameInput').value = sel.dataset.name || '';
 });
 </script>
 {% endblock %}

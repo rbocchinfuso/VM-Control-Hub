@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block title %}Groups — vCenter Manager{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 px-2">
+    <h4 class="fw-bold mb-0"><i class="bi bi-people-fill me-2 text-primary"></i>Groups</h4>
+    <a href="{{ url_for('groups.add') }}" class="btn btn-primary">
+        <i class="bi bi-plus-lg me-2"></i>New Group
+    </a>
+</div>
+
+<div class="card border-secondary">
+    <div class="card-body p-0">
+        {% if groups %}
+        <div class="table-responsive">
+            <table class="table table-dark table-hover mb-0">
+                <thead class="text-muted small">
+                    <tr>
+                        <th class="border-secondary ps-4">Group Name</th>
+                        <th class="border-secondary">Description</th>
+                        <th class="border-secondary text-center">Members</th>
+                        <th class="border-secondary text-center">VM Permissions</th>
+                        <th class="border-secondary">Created</th>
+                        <th class="border-secondary text-end pe-4">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for group in groups %}
+                    <tr>
+                        <td class="border-secondary ps-4 fw-semibold">
+                            <i class="bi bi-people-fill me-2 text-primary"></i>{{ group.name }}
+                        </td>
+                        <td class="border-secondary text-muted small">{{ group.description or '—' }}</td>
+                        <td class="border-secondary text-center">
+                            <span class="badge bg-secondary">{{ group.members | length }}</span>
+                        </td>
+                        <td class="border-secondary text-center">
+                            <span class="badge bg-info text-dark">{{ group.vm_permissions.count() }}</span>
+                        </td>
+                        <td class="border-secondary text-muted small">
+                            {{ group.created_at.strftime('%Y-%m-%d') if group.created_at else '' }}
+                        </td>
+                        <td class="border-secondary text-end pe-4">
+                            <a href="{{ url_for('groups.members', group_id=group.id) }}"
+                               class="btn btn-sm btn-outline-secondary me-1" title="Manage members">
+                                <i class="bi bi-person-plus"></i>
+                            </a>
+                            <a href="{{ url_for('groups.permissions', group_id=group.id) }}"
+                               class="btn btn-sm btn-outline-info me-1" title="VM permissions">
+                                <i class="bi bi-shield-lock"></i>
+                            </a>
+                            <a href="{{ url_for('groups.edit', group_id=group.id) }}"
+                               class="btn btn-sm btn-outline-primary me-1" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <form method="POST" action="{{ url_for('groups.delete', group_id=group.id) }}"
+                                  class="d-inline"
+                                  onsubmit="return confirm('Delete group {{ group.name }}? All group VM permissions will be removed.')">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-people-fill d-block mb-3" style="font-size:3rem; opacity:.3"></i>
+            <p class="mb-3">No groups yet. Groups let you assign VM permissions to multiple users at once.</p>
+            <a href="{{ url_for('groups.add') }}" class="btn btn-primary">Create your first group</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card border-secondary mt-4">
+    <div class="card-body text-muted small">
+        <i class="bi bi-info-circle me-2"></i>
+        <strong>How groups work:</strong>
+        VMs assigned to a group are accessible to all group members — in addition to any direct per-user permissions they already have.
+        Group permissions are evaluated at login time; changes take effect on next page load.
+    </div>
+</div>
+{% endblock %}

@@ -39,6 +39,7 @@ def create_app():
     from app.routes.vms import vms_bp
     from app.routes.snapshots import snapshots_bp
     from app.routes.users import users_bp
+    from app.routes.groups import groups_bp
     from app.routes.api import api_bp
 
     app.register_blueprint(auth_bp)
@@ -47,6 +48,7 @@ def create_app():
     app.register_blueprint(vms_bp)
     app.register_blueprint(snapshots_bp)
     app.register_blueprint(users_bp)
+    app.register_blueprint(groups_bp)
     app.register_blueprint(api_bp, url_prefix='/api')
 
     return app

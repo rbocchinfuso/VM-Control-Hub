@@ -1,0 +1,197 @@
+{% extends 'base.html' %}
+{% block title %}{{ group.name }} — VM Permissions — vCenter Manager{% endblock %}
+{% block content %}
+<div class="px-2">
+    <div class="d-flex align-items-center mb-4">
+        <a href="{{ url_for('groups.index') }}" class="btn btn-sm btn-outline-secondary me-3">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h4 class="fw-bold mb-0">
+                <i class="bi bi-shield-lock me-2 text-primary"></i>{{ group.name }}
+            </h4>
+            <div class="text-muted small">
+                VM Permissions &mdash;
+                <a href="{{ url_for('groups.members', group_id=group.id) }}" class="text-info">
+                    <i class="bi bi-people me-1"></i>{{ group.members | length }} member{{ 's' if group.members | length != 1 }}
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="card border-secondary">
+                <div class="card-header border-secondary">
+                    <h6 class="mb-0 fw-semibold"><i class="bi bi-plus-circle me-2 text-success"></i>Add VM Permission</h6>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">vCenter</label>
+                            <select name="vcenter_id" id="vcenterSelect"
+                                    class="form-select bg-dark border-secondary text-white" required>
+                                <option value="">Select vCenter...</option>
+                                {% for vc in vcenters %}
+                                <option value="{{ vc.id }}">{{ vc.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Virtual Machine</label>
+                            <select name="vm_moref" id="vmSelect"
+                                    class="form-select bg-dark border-secondary text-white" required disabled>
+                                <option value="">Select a vCenter first...</option>
+                            </select>
+                            <input type="hidden" name="vm_name" id="vmNameInput">
+                        </div>
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="can_power" name="can_power" checked>
+                                <label class="form-check-label" for="can_power">
+                                    Allow power operations
+                                    <span class="text-muted small">(reboot, reset, power on/off)</span>
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="can_snapshot" name="can_snapshot" checked>
+                                <label class="form-check-label" for="can_snapshot">
+                                    Allow snapshot management
+                                    <span class="text-muted small">(create, revert, delete)</span>
+                                </label>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-plus me-2"></i>Add VM to Group
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            {% if group.members %}
+            <div class="card border-secondary mt-3">
+                <div class="card-header border-secondary">
+                    <h6 class="mb-0 fw-semibold text-muted"><i class="bi bi-people me-2"></i>Applies to Members</h6>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        {% for member in group.members | sort(attribute='username') %}
+                        <li class="list-group-item bg-transparent border-secondary py-2 px-3 d-flex justify-content-between align-items-center">
+                            <span class="small">
+                                <i class="bi bi-person-circle me-2 text-muted"></i>{{ member.username }}
+                            </span>
+                            <span class="badge bg-{{ 'danger' if member.role == 'admin' else 'warning text-dark' if member.role == 'operator' else 'secondary' }}">
+                                {{ member.role }}
+                            </span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-lg-7">
+            <div class="card border-secondary">
+                <div class="card-header border-secondary">
+                    <h6 class="mb-0 fw-semibold">
+                        <i class="bi bi-list-check me-2"></i>Current VM Permissions
+                        <span class="badge bg-secondary ms-2">{{ current_perms | length }}</span>
+                    </h6>
+                </div>
+                <div class="card-body p-0">
+                    {% if current_perms %}
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover mb-0">
+                            <thead class="text-muted small">
+                                <tr>
+                                    <th class="border-secondary ps-3">VM Name</th>
+                                    <th class="border-secondary">vCenter</th>
+                                    <th class="border-secondary text-center" title="Power operations">
+                                        <i class="bi bi-power"></i>
+                                    </th>
+                                    <th class="border-secondary text-center" title="Snapshot management">
+                                        <i class="bi bi-camera"></i>
+                                    </th>
+                                    <th class="border-secondary text-end pe-3">Remove</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for perm in current_perms %}
+                                <tr>
+                                    <td class="border-secondary ps-3 fw-semibold">
+                                        <i class="bi bi-display me-2 text-muted"></i>
+                                        {{ perm.vm_name or perm.vm_moref }}
+                                    </td>
+                                    <td class="border-secondary text-muted small">
+                                        {% for vc in vcenters %}{% if vc.id == perm.vcenter_id %}{{ vc.name }}{% endif %}{% endfor %}
+                                    </td>
+                                    <td class="border-secondary text-center">
+                                        {% if perm.can_power %}
+                                        <i class="bi bi-check-circle-fill text-success"></i>
+                                        {% else %}
+                                        <i class="bi bi-x-circle text-muted"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td class="border-secondary text-center">
+                                        {% if perm.can_snapshot %}
+                                        <i class="bi bi-check-circle-fill text-success"></i>
+                                        {% else %}
+                                        <i class="bi bi-x-circle text-muted"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td class="border-secondary text-end pe-3">
+                                        <form method="POST"
+                                              action="{{ url_for('groups.delete_permission', group_id=group.id, perm_id=perm.id) }}"
+                                              onsubmit="return confirm('Remove this VM from the group?')">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-shield-x d-block mb-2" style="font-size:2rem; opacity:.3"></i>
+                        No VMs assigned to this group yet.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const vmsByVcenter = {{ all_vms | tojson }};
+
+document.getElementById('vcenterSelect').addEventListener('change', function() {
+    const vcId = parseInt(this.value);
+    const vmSelect = document.getElementById('vmSelect');
+    vmSelect.innerHTML = '<option value="">Select VM...</option>';
+
+    const vms = vmsByVcenter[vcId];
+    if (vcId && vms && vms.length) {
+        vms.forEach(vm => {
+            const opt = document.createElement('option');
+            opt.value = vm.moref;
+            opt.textContent = `${vm.name}  (${vm.power_state})`;
+            opt.dataset.name = vm.name;
+            vmSelect.appendChild(opt);
+        });
+        vmSelect.disabled = false;
+    } else {
+        vmSelect.disabled = true;
+    }
+});
+
+document.getElementById('vmSelect').addEventListener('change', function() {
+    const sel = this.options[this.selectedIndex];
+    document.getElementById('vmNameInput').value = sel.dataset.name || '';
+});
+</script>
+{% endblock %}

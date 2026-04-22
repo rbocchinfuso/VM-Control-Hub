@@ -2,10 +2,15 @@
 {% block title %}Users — vCenter Manager{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4 px-2">
-    <h4 class="fw-bold mb-0"><i class="bi bi-people me-2 text-primary"></i>User Management</h4>
-    <a href="{{ url_for('users.add') }}" class="btn btn-primary">
-        <i class="bi bi-person-plus me-2"></i>Add User
-    </a>
+    <h4 class="fw-bold mb-0"><i class="bi bi-person me-2 text-primary"></i>Users</h4>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('groups.index') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-people-fill me-2"></i>Manage Groups
+        </a>
+        <a href="{{ url_for('users.add') }}" class="btn btn-primary">
+            <i class="bi bi-person-plus me-2"></i>Add User
+        </a>
+    </div>
 </div>
 
 <div class="card border-secondary">
@@ -18,9 +23,9 @@
                         <th class="border-secondary ps-4">Username</th>
                         <th class="border-secondary">Email</th>
                         <th class="border-secondary text-center">Role</th>
+                        <th class="border-secondary">Groups</th>
                         <th class="border-secondary text-center">Status</th>
                         <th class="border-secondary">Last Login</th>
-                        <th class="border-secondary">Created</th>
                         <th class="border-secondary text-end pe-4">Actions</th>
                     </tr>
                 </thead>
@@ -37,6 +42,16 @@
                                 {{ user.role }}
                             </span>
                         </td>
+                        <td class="border-secondary">
+                            {% for group in user.groups %}
+                            <a href="{{ url_for('groups.members', group_id=group.id) }}"
+                               class="badge bg-primary text-decoration-none me-1">
+                                <i class="bi bi-people-fill me-1"></i>{{ group.name }}
+                            </a>
+                            {% else %}
+                            <span class="text-muted small">—</span>
+                            {% endfor %}
+                        </td>
                         <td class="border-secondary text-center">
                             {% if user.is_active %}
                             <span class="badge bg-success">Active</span>
@@ -44,17 +59,21 @@
                             <span class="badge bg-secondary">Disabled</span>
                             {% endif %}
                         </td>
-                        <td class="border-secondary text-muted small">{{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else 'Never' }}</td>
-                        <td class="border-secondary text-muted small">{{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '' }}</td>
+                        <td class="border-secondary text-muted small">
+                            {{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else 'Never' }}
+                        </td>
                         <td class="border-secondary text-end pe-4">
-                            <a href="{{ url_for('users.permissions', user_id=user.id) }}" class="btn btn-sm btn-outline-secondary me-1" title="VM Permissions">
+                            <a href="{{ url_for('users.permissions', user_id=user.id) }}"
+                               class="btn btn-sm btn-outline-secondary me-1" title="VM Permissions">
                                 <i class="bi bi-shield-lock"></i>
                             </a>
-                            <a href="{{ url_for('users.edit', user_id=user.id) }}" class="btn btn-sm btn-outline-primary me-1" title="Edit">
+                            <a href="{{ url_for('users.edit', user_id=user.id) }}"
+                               class="btn btn-sm btn-outline-primary me-1" title="Edit">
                                 <i class="bi bi-pencil"></i>
                             </a>
                             {% if user.id != current_user.id %}
-                            <form method="POST" action="{{ url_for('users.delete', user_id=user.id) }}" class="d-inline"
+                            <form method="POST" action="{{ url_for('users.delete', user_id=user.id) }}"
+                                  class="d-inline"
                                   onsubmit="return confirm('Delete user {{ user.username }}?')">
                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
                                     <i class="bi bi-trash"></i>

@@ -1,7 +1,7 @@
 """Initialize the database and create a default admin user."""
 import os
 from app import create_app, db
-from app.models import User
+from app.models import User, Group, GroupVMPermission, VCenter, VMPermission, AuditLog
 
 app = create_app()
 

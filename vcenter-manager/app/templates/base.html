@@ -37,10 +37,25 @@
                         <i class="bi bi-server me-1"></i>vCenters
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link {% if request.blueprint == 'users' %}active{% endif %}" href="{{ url_for('users.index') }}">
-                        <i class="bi bi-people me-1"></i>Users
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle {% if request.blueprint in ['users', 'groups'] %}active{% endif %}"
+                       href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-people me-1"></i>Access Control
                     </a>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item {% if request.blueprint == 'users' %}active{% endif %}"
+                               href="{{ url_for('users.index') }}">
+                                <i class="bi bi-person me-2"></i>Users
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item {% if request.blueprint == 'groups' %}active{% endif %}"
+                               href="{{ url_for('groups.index') }}">
+                                <i class="bi bi-people-fill me-2"></i>Groups
+                            </a>
+                        </li>
+                    </ul>
                 </li>
                 {% endif %}
             </ul>
