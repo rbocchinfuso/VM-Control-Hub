@@ -124,7 +124,7 @@ def mfa_setup():
     totp = pyotp.TOTP(secret)
     provisioning_uri = totp.provisioning_uri(
         name=current_user.email,
-        issuer_name='vCenter Manager'
+        issuer_name='Infrastructure Manager'
     )
 
     if request.method == 'POST':
